@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YC Productivity Suite</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#00ffcc">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+            background-color: #121214;
+            color: #e1e1e6;
+            margin: 0;
+            padding: 20px;
+        }
+        .app-container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: #1c1c1f;
+            padding: 24px;
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+        }
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        h1 { color: #00ffcc; margin: 0; font-size: 22px; }
+        select, input, button {
+            background: #29292e;
+            color: #fff;
+            border: 1px solid #323238;
+            padding: 12px;
+            border-radius: 6px;
+            font-size: 15px;
+            box-sizing: border-box;
+        }
+        select { width: 100%; margin-bottom: 15px; border-color: #00ffcc; font-weight: bold; }
+        .grid-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        .stat-card {
+            background: #202024;
+            padding: 14px;
+            border-radius: 8px;
+            text-align: center;
+            border: 1px solid #29292e;
+        }
+        .stat-card div:first-child { font-size: 12px; color: #8d8d99; margin-bottom: 4px; }
+        .stat-card div:last-child { font-size: 20px; font-weight: bold; color: #ffcc00; }
+        .input-row { display: flex; gap: 8px; margin-bottom: 15px; }
+        .input-row input[type="text"] { flex: 2; }
+        .input-row input[type="number"] { flex: 1; }
+        .btn-add { background: #00ffcc; color: #121214; font-weight: bold; cursor: pointer; }
+        .btn-action { background: #202024; border: 1px solid #ff4a5a; color: #ff4a5a; width: 100%; margin-bottom: 15px; cursor: pointer; font-weight: bold;}
+        .btn-action:hover { background: #ff4a5a; color: #fff; }
+        .export-row { display: flex; gap: 8px; margin-top: 20px; }
+        .btn-export { flex: 1; background: #29292e; border: 1px solid #00ffcc; color: #00ffcc; cursor: pointer; }
+        .btn-export:hover { background: #00ffcc; color: #121214; }
+        ul { list-style: none; padding: 0; margin: 0; }
+        li {
+            background: #202024;
+            padding: 14px;
+            border-radius: 6px;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-left: 4px solid #00ffcc;
+        }
+        li.done { border-left-color: #8d8d99; opacity: 0.5; }
+        li.done span { text-decoration: line-through; }
+        .btn-done { background: #00ffcc; color: #121214; border: none; padding: 6px 12px; border-radius: 4px; font-size: 13px; cursor: pointer; font-weight: bold; }
+        .overtime { color: #ff4a5a !important; }
+        canvas { display: none; }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <header>
+        <h1>🚀 YC Focus Flow</h1>
+    </header>
+
+    <!-- Mode Selector -->
+    <select id="mode-select" onchange="changeMode()">
+        <option value="Tasks">🎯 Mode: General Tasks</option>
+        <option value="Meditation">🧘 Mode: Meditation</option>
+        <option value="Exercise">💪 Mode: Exercise</option>
+        <option value="Cooking">🍳 Mode: Cooking</option>
+    </select>
+
+    <!-- Dashboard Numbers -->
+    <div class="grid-stats">
+        <div class="stat-card">
+            <div>Current Mode Focus Time</div>
+            <div id="display-time">0 mins</div>
+        </div>
+        <div class="stat-card">
+            <div>Extra / Overage Time</div>
+            <div id="display-extra" class="overtime">0 mins</div>
+        </div>
+        <div class="stat-card">
+            <div>Distractions Logged</div>
+            <div id="display-distractions">0</div>
+        </div>
+        <div class="stat-card">
+            <div>Accountability Score</div>
+            <div id="display-score">100%</div>
+        </div>
+    </div>
+
+    <button class="btn-action" onclick="logDistraction()">⚠️ I Got Distracted</button>
+
+    <!-- Add Item Section -->
+    <div class="input-row">
+        <input type="text" id="item-name" placeholder="What are you doing?">
+        <input type="number" id="item-duration" placeholder="Mins">
+        <button class="btn-add" onclick="addItem()">Add</button>
+    </div>
+
+    <ul id="item-list"></ul>
+
+    <!-- Backup Actions -->
+    <div class="export-row">
+        <button class="btn-export" onclick="exportTxt()">📥 Export TXT Log</button>
+        <button class="btn-export" onclick="generateStatSheet()">🖼️ Download Stat Sheet</button>
+    </div>
+</div>
+
+<!-- Hidden Canvas element to generate the Stat Sheet Image -->
+<canvas id="stat-canvas" width="500" height="400"></canvas>
+
+<script>
+    let currentMode = "Tasks";
+    let dataStore = {
+        Tasks: { items: [], distractions: 0, timeSpent: 0, extraTime: 0 },
+        Meditation: { items: [], distractions: 0, timeSpent: 0, extraTime: 0 },
+        Exercise: { items: [], distractions: 0, timeSpent: 0, extraTime: 0 },
+        Cooking: { items: [], distractions: 0, timeSpent: 0, extraTime: 0 }
+    };
+
+    // Service Worker Registration for PWA Mobile Offline Mode
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('sw.js').catch(err => console.log("SW registration failed", err));
+    }
+
+    // Soft Ambient Sine Wave Chime
+    function playAmbientChime() {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = audioCtx.createOscillator();
+        const gainNode = audioCtx.createGain();
+        
+        oscillator.type = 'sine';
+        oscillator.frequency.setValueAtTime(523.25, audioCtx.currentTime); // Node C5
+        gainNode.gain.setValueAtTime(0.2, audioCtx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.6);
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+        oscillator.start();
+        oscillator.stop(audioCtx.currentTime + 0.6);
+    }
+
+    function changeMode() {
+        currentMode = document.getElementById('mode-select').value;
+        updateUI();
+    }
+
+    function addItem() {
+        const nameInput = document.getElementById('item-name');
+        const timeInput = document.getElementById('item-duration');
+        if (!nameInput.value.trim() || !timeInput.value) return;
+
+        dataStore[currentMode].items.push({
+            name: nameInput.value,
+            predictedMins: parseInt(timeInput.value),
+            done: false,
+            actualMins: 0
+        });
+
+        nameInput.value = '';
+        timeInput.value = '';
+        updateUI();
+    }
+
+    function completeItem(index) {
+        let item = dataStore[currentMode].items[index];
+        item.done = true;
+        
+        // Simulating completion timing. Prompting user for duration or defaulting to expected + random extra
+        let actual = prompt(`How many total minutes did "${item.name}" actually take?`, item.predictedMins);
+        item.actualMins = parseInt(actual) || item.predictedMins;
+
+        dataStore[currentMode].timeSpent += item.predictedMins;
+        if (item.actualMins > item.predictedMins) {
+            dataStore[currentMode].extraTime += (item.actualMins - item.predictedMins);
+        }
+
+        playAmbientChime();
+        updateUI();
+    }
+
+    function logDistraction() {
+        dataStore[currentMode].distractions++;
+        updateUI();
+    }
+
+    function calculateScore(mode) {
+        const totalItems = dataStore[mode].items.length;
+        if (totalItems === 0) return 100;
+        return Math.max(0, 100 - (dataStore[mode].distractions * 15));
+    }
+
+    function updateUI() {
+        const modeData = dataStore[currentMode];
+        document.getElementById('display-time').innerText = `${modeData.timeSpent} mins`;
+        document.getElementById('display-extra').innerText = `${modeData.extraTime} mins`;
+        document.getElementById('display-distractions').innerText = modeData.distractions;
+        document.getElementById('display-score').innerText = `${calculateScore(currentMode)}%`;
+
+        const listEl = document.getElementById('item-list');
+        listEl.innerHTML = '';
+
+        modeData.items.forEach((item, index) => {
+            const li = document.createElement('li');
+            if (item.done) li.classList.add('done');
+            
+            let extraInfo = item.done && item.actualMins > item.predictedMins ? ` (+${item.actualMins - item.predictedMins}m over)` : '';
+            li.innerHTML = `
+                <span>${item.name} <small style="color:#8d8d99">(${item.predictedMins}m)${extraInfo}</small></span>
+                ${!item.done ? `<button class="btn-done" onclick="completeItem(${index})">Done</button>` : '✅'}
+            `;
+            listEl.appendChild(li);
+        });
+    }
+
+    // PARAMETER EXPORT GENERATOR (.txt)
+    function exportTxt() {
+        let output = `=========================================\n`;
+        output += `      YC PRODUCTIVITY DAILY SUMMARY       \n`;
+        output += `      Date: ${new Date().toLocaleDateString()} \n`;
+        output += `=========================================\n\n`;
+
+        for (let mode in dataStore) {
+            let data = dataStore[mode];
+            if (data.items.length === 0 && data.distractions === 0) continue;
+
+            output += `▶ MODE: ${mode.toUpperCase()}\n`;
+            output += `-----------------------------------------\n`;
+            output += - Focus Score: ${calculateScore(mode)}%\n;
+            output += - Logged Distractions: ${data.distractions}\n;
+            output += - Base Productive Time: ${data.timeSpent} mins\n;
+            output += - Extra / Overage Time: ${data.extraTime} mins\n\n;
+            output += 📋 Ledger Items:\n;
+            
+            if (data.items.length === 0) output +=   (No items items registered)\n;
+            data.items.forEach((item, i) => {
+                let status = item.done ? [✅ DONE] : [⏳ PENDING];
+                output +=   ${i+1}. ${status} ${item.name} (${item.predictedMins}m allocated ->
+                Actual: ${item.actualMins || 0}m)\n;
+                });
+                output += \n;
+            }
+            const blob = new Blob([output], { type: 'text/plain' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);a.download = YC-Daily-Log-${new Date().toISOString().slice(0,10)}.txt;
+            a.click();
+        }
+// STAT SHEET IMAGE GENERATOR (.png)
+function generateStatSheet() {
+const canvas = document.getElementById('stat-canvas');
+const ctx = canvas.getContext('2d');
+
+// Draw Card Background
+ctx.fillStyle = '#1c1c1f';
+ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+// Frame accents
+ctx.strokeStyle = '#00ffcc';
+ctx.lineWidth = 4;
+ctx.strokeRect(10, 10, canvas.width - 20, canvas.height - 20);
+
+// Header Text
+ctx.fillStyle = '#00ffcc';
+ctx.font = 'bold 22px Arial';
+ctx.fillText('🏆 PERFORMANCE STAT SHEET', 40, 50);
+
+ctx.fillStyle = '#8d8d99';ctx.font = '14px Arial';
+ctx.fillText(Generated on: ${new Date().toLocaleDateString()}, 40, 75);
+
+// Populate dynamic statistics summary rows
+ctx.fillStyle = '#ffffff';
+ctx.font = 'bold 16px Arial';
+
+let yPos = 130;
+for (let mode in dataStore) {let data = dataStore[mode];
+ctx.fillStyle = '#00ffcc';
+ctx.fillText(• ${mode} Mode:, 40, yPos);
+
+ctx.fillStyle = '#e1e1e6';
+ctx.font = '14px Arial';
+ctx.fillText(Score: ${calculateScore(mode)}% | Done: ${data.timeSpent}m | Overage: +${data.extraTime}m, 50, yPos + 22);yPos += 55;}
+
+// Export Canvas Drawing into Downloadable Link
+const a = document.createElement('a');
+a.href = canvas.toDataURL('image/png');
+a.download = YC-Stat-Sheet.png;
+a.click();}
+
+// Initial Dashboard Setup
+updateUI();

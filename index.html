@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>YC Productivity Suite</title>
-    <link rel="manifest" href="manifest.json">
+    <link rel="manifest" href="./manifest.json">
     <meta name="theme-color" content="#00ffcc">
     <style>
         body {
@@ -148,7 +148,7 @@
 
     // Service Worker Registration for PWA Mobile Offline Mode
     if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('sw.js').catch(err => console.log("SW registration failed", err));
+        navigator.serviceWorker.register('./sw.js').catch(err => console.log("SW registration failed", err));
     }
 
     // Soft Ambient Sine Wave Chime

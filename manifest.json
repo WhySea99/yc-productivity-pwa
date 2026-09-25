@@ -1,16 +1,16 @@
-```json
 {
   "short_name": "YCFocus",
   "name": "YC Focus Flow Suite",
   "description": "Multi-mode productivity and accountability engine.",
   "start_url": "./index.html",
+  "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
   "theme_color": "#00ffcc",
   "background_color": "#121214",
   "icons": [
     {
-      "src": "icon-192.png",
+      "src": "./icon-192.png",
       "type": "image/png",
       "sizes": "192x192"
     }

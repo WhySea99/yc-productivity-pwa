@@ -1,22 +1,11 @@
-const CACHE_NAME = 'yc-focus-v1';
-const ASSETS = [
-  './index.html',
-  './manifest.json',
-  './icon-192.png'
-];
+const CACHE_NAME = 'yc-focus-v2';
 
 self.addEventListener('install', (e) => {
-  e.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(ASSETS);
-    })
-  );
+  self.skipWaiting(); // Forces the updated code to activate instantly
 });
 
 self.addEventListener('fetch', (e) => {
   e.respondWith(
-    caches.match(e.request).then((response) => {
-      return response || fetch(e.request);
-    })
+    fetch(e.request).catch(() => caches.match(e.request))
   );
 });
